@@ -1,0 +1,34 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# React
+dist/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Environment
+.env
+.env.*
+
+# ML models
+# *.pt
+*.pth
+*.onnx
+
+# OS
+.DS_Store
+Thumbs.db
+
+# extra stuff
+.venv/
+help_data.txt
+help.txt
+how_to_compile_run.txt
+
+# datasets
+datasets
