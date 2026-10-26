@@ -1,0 +1,31 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Outputs & inputs (keep .gitkeep)
+outputs/*
+!outputs/.gitkeep
+inputs/*
+!inputs/.gitkeep
+models/*
+!models/.gitkeep
+
+# Media files
+*.mp4
+*.avi
+*.mov
+*.weights
+
+# IDE
+.vscode/
+.idea/
+
+# Env
+.env
