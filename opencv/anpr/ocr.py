@@ -5,10 +5,14 @@ The Reader is initialised once (lazy singleton) to avoid the costly
 model-load on every request.
 """
 
+from pathlib import Path
 import re
 
 import easyocr
 import numpy as np
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+OCR_MODEL_DIR = PROJECT_ROOT / "results" / "anpr" / "ocr_models"
 
 # ── Lazy singleton ────────────────────────────────────────────────────────────
 _reader: easyocr.Reader | None = None
@@ -18,7 +22,17 @@ def get_reader(languages: list[str] | None = None) -> easyocr.Reader:
     """Return the shared EasyOCR Reader, creating it on first call."""
     global _reader
     if _reader is None:
-        _reader = easyocr.Reader(languages or ["en"], gpu=False)
+        OCR_MODEL_DIR.mkdir(parents=True, exist_ok=True)
+        model_dir = str(OCR_MODEL_DIR)
+        download_needed = not (OCR_MODEL_DIR / "craft_mlt_25k.pth").exists()
+        _reader = easyocr.Reader(
+            languages or ["en"],
+            gpu=False,
+            model_storage_directory=model_dir,
+            user_network_directory=model_dir,
+            download_enabled=download_needed,
+            verbose=False
+        )
     return _reader
 
 
