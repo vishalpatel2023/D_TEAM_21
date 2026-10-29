@@ -32,3 +32,6 @@ how_to_compile_run.txt
 
 # datasets
 datasets
+
+# YOLO runs
+runs/
