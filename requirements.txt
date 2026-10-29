@@ -1,6 +1,5 @@
 anyio==4.15.1
 easyocr
-flask
 certifi==2026.7.22
 charset-normalizer==3.5.2
 cloudpickle==3.1.2
