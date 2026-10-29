@@ -25,6 +25,24 @@ This project detects two-wheeler helmet violations, road potholes, and vehicle l
 
 ---
 
+## Datasets
+
+All datasets used for training and evaluating the computer vision models are publicly accessible via Google Drive:
+
+📁 **[Download Road Safety Datasets (Google Drive)](https://drive.google.com/drive/folders/1Fwo6gKeLIZs2_RAX-cXUG2pI6j1U0Pea?usp=drive_link)**
+
+### Included Datasets:
+1. **Bike Helmet Detection Dataset (`Bike Helmet Detection.v1i.yolov8/`)**:
+   - Annotated photos of two-wheeler riders categorized into `With Helmet` and `Without Helmet` in YOLO format (`train/`, `valid/`, and `test/` splits).
+2. **Pothole Detection Dataset (`Pothole-Detection.v18i.yolov8/`)**:
+   - Annotated road imagery with bounding boxes labeled for `pothole` hazard detection.
+3. **Car License Plate (ANPR) Dataset**:
+   - Annotated vehicle photos used for license plate localization and EasyOCR text extraction.
+
+> **Note**: Pre-trained weights (`best.pt`) for all three models are already included in the `results/` folder, so you can run and test the complete system immediately without downloading the datasets. If you wish to retrain any model using `train.py`, download the datasets from the link above and place them inside a `datasets/` directory in the project root.
+
+---
+
 ## Project Folder Structure
 
 ```text

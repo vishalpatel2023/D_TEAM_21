@@ -69,7 +69,35 @@ The project follows a standard three-tier architecture:
 
 ---
 
-## 4. Deep Dive into Computer Vision Modules
+## 4. Datasets & Model Training Resources
+
+All datasets used for training and evaluating the deep learning models are hosted on a public Google Drive folder for easy access and reproducibility:
+
+📁 **Public Dataset Repository:**  
+[Google Drive - Road Safety Datasets](https://drive.google.com/drive/folders/1Fwo6gKeLIZs2_RAX-cXUG2pI6j1U0Pea?usp=drive_link)
+
+### Included Datasets:
+
+1. **Bike Helmet Detection Dataset (`Bike Helmet Detection.v1i.yolov8/`)**:
+   - **Classes**: `0: With Helmet`, `1: Without Helmet`.
+   - **Format**: YOLOv8 annotation format with `images/` and `labels/` arranged in `train/`, `valid/`, and `test/` splits.
+   - **Configuration**: Includes `data.yaml` which defines the dataset paths and class names for training.
+
+2. **Pothole Detection Dataset (`Pothole-Detection.v18i.yolov8/`)**:
+   - **Classes**: `0: pothole`.
+   - **Format**: Annotated asphalt roadway photos with bounding boxes surrounding surface cavities and structural cracks.
+   - **Configuration**: YOLOv8 format with train/validation/test sets for hazard detection.
+
+3. **Car License Plate Dataset (ANPR)**:
+   - **Classes**: `0: license_plate`.
+   - **Format**: Vehicle images labeled with plate bounding boxes used to train the YOLOv8 locator in `results/anpr/weights/best.pt`, with text recognition performed by EasyOCR.
+
+> **Pre-Trained Weights Included:**  
+> The trained weights files (`best.pt`) for Helmet Detection, Pothole Detection, and ANPR are already included inside the `results/` folder in this repository. Downloading the raw datasets is only necessary if you want to inspect the source imagery or re-train models using their respective `train.py` scripts. If retraining, extract the downloaded folders into a `datasets/` folder in the project root.
+
+---
+
+## 5. Deep Dive into Computer Vision Modules
 
 All computer vision modules follow a standardized inference contract:
 ```python
@@ -161,7 +189,7 @@ Each function returns a list of dictionaries where each detection contains:
 
 ---
 
-## 5. Backend API Reference (`backend/api.py`)
+## 6. Backend API Reference (`backend/api.py`)
 
 The backend is built with FastAPI and runs with Uvicorn on port `8000`. It provides CORS support for `localhost:5173`.
 
@@ -282,7 +310,7 @@ The backend is built with FastAPI and runs with Uvicorn on port `8000`. It provi
 
 ---
 
-## 6. Frontend Dashboard Architecture (`frontend/`)
+## 7. Frontend Dashboard Architecture (`frontend/`)
 
 The frontend is built using **React 19** and **Vite**, styled with clean, accessible CSS designed specifically for an academic project presentation.
 
@@ -305,7 +333,7 @@ The frontend is built using **React 19** and **Vite**, styled with clean, access
 
 ---
 
-## 7. Repository Directory Structure
+## 8. Repository Directory Structure
 
 ```text
 road-safety-monitoring-system/
@@ -352,7 +380,7 @@ road-safety-monitoring-system/
 
 ---
 
-## 8. Step-by-Step Setup and Execution Guide
+## 9. Step-by-Step Setup and Execution Guide
 
 ### Prerequisites
 - Python 3.10+
@@ -405,3 +433,27 @@ python opencv/pothole/detect.py
 # Test License Plate Recognition (ANPR)
 python opencv/anpr/detect.py
 ```
+
+---
+
+## 10. Troubleshooting & Technical FAQ
+
+#### Q: The frontend shows "Backend Offline (:8000)".
+- Verify that the FastAPI server is running in your terminal: `uvicorn backend.api:app --reload --port 8000`.
+- Ensure no other application is blocking port `8000`.
+
+#### Q: How are model weights located by the code?
+- Each module resolves weights relative to the project root using `pathlib.Path(__file__).resolve()`.
+- Default locations:
+  - Helmet: `results/helmet_detection/weights/best.pt`
+  - Pothole: `results/pothole_detection/weights/best.pt`
+  - ANPR: `results/anpr/weights/best.pt`
+
+#### Q: What happens if EasyOCR is not installed or language weights fail to download?
+- `opencv/anpr/ocr.py` wraps `easyocr` imports in a safe `try...except ImportError` block.
+- If EasyOCR is unavailable, plate detection will still locate the plate bounding box and set `plate_text = ""` rather than crashing the server.
+- Ensure internet access is available on the first run of EasyOCR so it can download its pre-trained text recognition models (`craft_mlt_25k.pth` and `english_g2.pth`).
+
+#### Q: How do I change the detection confidence?
+- In the frontend dashboard, adjust the **Confidence Threshold** slider before clicking **Run Detection**.
+- In API requests, pass the query parameter `?conf=0.5` (e.g., `POST /detect/helmet?conf=0.5`).
