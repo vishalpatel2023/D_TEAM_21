@@ -8,7 +8,7 @@ from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-# Ensure the project root is in Python's import search path
+# Ensuring the project root is in Python's import search path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))

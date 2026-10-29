@@ -40,3 +40,6 @@ ultralytics==8.4.170
 ultralytics-platform==0.1.75
 ultralytics-thop==2.2.1
 urllib3==2.8.0
+fastapi
+uvicorn
+python-multipart
