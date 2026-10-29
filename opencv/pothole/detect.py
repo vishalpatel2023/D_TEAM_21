@@ -30,7 +30,7 @@ def detect_pothole(image_path, conf=0.25):
         conf=conf,
         save=True,
         project=str(save_dir),
-        name="predict-2",
+        name="predict",
         exist_ok=True
     )
 
@@ -66,7 +66,8 @@ if __name__ == "__main__":
     if test_dir.exists():
         test_images = [f for f in os.listdir(test_dir) if f.endswith(('.jpg', '.png', '.jpeg'))]
         if test_images:
-            test_image = test_dir / test_images[2]
+            sample_img = test_dir / "10_jpg.rf.62ce6676e5b738904167dcfc75441484.jpg"
+            test_image = sample_img if sample_img.exists() else test_dir / test_images[0]
             print(f"Running detection on: {test_image}...\n")
             
             detections = detect_pothole(test_image)

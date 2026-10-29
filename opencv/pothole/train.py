@@ -7,7 +7,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATASET = (
     PROJECT_ROOT
     / "datasets"
-    / "Pothole-Detection.v1i.yolov8"
+    / "Pothole-Detection.v18i.yolov8"
     / "data.yaml"
 )
 
