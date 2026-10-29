@@ -8,19 +8,24 @@ model-load on every request.
 from pathlib import Path
 import re
 
-import easyocr
+try:
+    import easyocr
+except ImportError:
+    easyocr = None
 import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 OCR_MODEL_DIR = PROJECT_ROOT / "results" / "anpr" / "ocr_models"
 
 # ── Lazy singleton ────────────────────────────────────────────────────────────
-_reader: easyocr.Reader | None = None
+_reader = None
 
 
-def get_reader(languages: list[str] | None = None) -> easyocr.Reader:
+def get_reader(languages: list[str] | None = None):
     """Return the shared EasyOCR Reader, creating it on first call."""
     global _reader
+    if easyocr is None:
+        return None
     if _reader is None:
         OCR_MODEL_DIR.mkdir(parents=True, exist_ok=True)
         model_dir = str(OCR_MODEL_DIR)
@@ -30,7 +35,7 @@ def get_reader(languages: list[str] | None = None) -> easyocr.Reader:
             gpu=False,
             model_storage_directory=model_dir,
             user_network_directory=model_dir,
-            download_enabled=download_needed,
+            download_enabled=True,
             verbose=False
         )
     return _reader
@@ -51,6 +56,8 @@ def extract_plate_text(plate_img: np.ndarray) -> dict:
             ocr_confidence — average confidence across detected text segments
     """
     reader  = get_reader()
+    if reader is None:
+        return {"text": "", "raw_text": "", "ocr_confidence": 0.0}
     results = reader.readtext(plate_img, detail=1, paragraph=False)
 
     if not results:

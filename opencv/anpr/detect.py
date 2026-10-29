@@ -66,12 +66,23 @@ def _get_model():
 
 def _detect_yolo(image: np.ndarray, model, conf: float) -> list:
     """Run YOLO inference and return raw bounding boxes."""
-    results = model.predict(source=image, conf=conf, verbose=False)
+    save_dir = PROJECT_ROOT / "runs" / "detect_anpr"
+    results = model.predict(
+        source=image,
+        conf=conf,
+        save=True,
+        project=str(save_dir),
+        name="predict",
+        exist_ok=True,
+        verbose=False
+    )
     boxes = []
     for result in results:
         for box in result.boxes:
             x1, y1, x2, y2 = map(int, box.xyxy[0])
-            boxes.append({"bbox": [x1, y1, x2, y2], "confidence": float(box.conf[0])})
+            class_id = int(box.cls[0])
+            class_name = result.names[class_id]
+            boxes.append({"class": class_name, "bbox": [x1, y1, x2, y2], "confidence": float(box.conf[0])})
     return boxes
 
 
@@ -106,6 +117,7 @@ def _detect_contour(image: np.ndarray) -> list:
         # Typical plate aspect ratio: 2.0 - 6.5  |  area: 0.5% - 20% of image
         if 2.0 <= aspect <= 6.5 and 0.005 * img_area <= area <= 0.20 * img_area:
             boxes.append({
+                "class":      "license_plate",
                 "bbox":       [int(x), int(y), int(x + w), int(y + h)],
                 "confidence": 1.0,
             })
@@ -193,6 +205,7 @@ def detect_plates(
         ocr_result   = extract_plate_text(preprocessed)
 
         detections.append({
+            "class":          raw.get("class", "license_plate"),
             "bbox":           [x1, y1, x2, y2],
             "confidence":     round(raw["confidence"], 4),
             "plate_text":     ocr_result["text"],
@@ -213,12 +226,31 @@ def detect_plates(
 
 
 # ── CLI entry point ───────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python opencv/anpr/detect.py <image_path> [conf]")
-        sys.exit(1)
+def detect_plate(
+    image_path: Union[str, Path, np.ndarray],
+    conf: float = 0.4,
+) -> list:
+    """
+    Detect license plates in a single image.
+    Matches the pattern and return format used in detect_helmet and detect_pothole.
 
-    img_path = sys.argv[1]
+    Returns:
+        list[dict]: Detection information.
+    """
+    result = detect_plates(image_path, conf=conf)
+    return result.get("detections", [])
+
+
+# Aliases matching helmet & pothole detection convention
+detect_anpr = detect_plate
+
+
+if __name__ == "__main__":
+
+
+
+
+    img_path = sys.argv[1] if len(sys.argv) > 1 else str(PROJECT_ROOT / "test_images" / "car_real.jpg")
     conf_arg = float(sys.argv[2]) if len(sys.argv) > 2 else 0.4
 
     result = detect_plates(img_path, conf=conf_arg)
