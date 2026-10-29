@@ -1,328 +1,407 @@
-# 🛡️ Road Safety Monitoring System — Complete Project Documentation
+# Road Safety Monitoring System — Project Documentation
 
-> **A Comprehensive, Beginner-Friendly Guide to the Architecture, Codebase, and How Everything Connects.**
-
----
-
-## 📋 Table of Contents
-1. [Project Overview](#1-project-overview)
-2. [Team Members & Assigned Modules](#2-team-members--assigned-modules)
-3. [System Architecture (The Big Picture)](#3-system-architecture-the-big-picture)
-4. [Deep Dive into Each Component](#4-deep-dive-into-each-component)
-   - [A. Datasets & YOLO Labels](#a-datasets--yolo-labels)
-   - [B. AI Model Training (`train.py`)](#b-ai-model-training-trainpy)
-   - [C. Computer Vision Inference (`detect.py`)](#c-computer-vision-inference-detectpy)
-   - [D. Backend API (`backend/api.py`)](#d-backend-api-backendapipy)
-   - [E. Frontend Dashboard (`frontend/`)](#e-frontend-dashboard-frontend)
-5. [Complete Directory Structure & File Map](#5-complete-directory-structure--file-map)
-6. [Step-by-Step Guide: How to Run the Project](#6-step-by-step-guide-how-to-run-the-project)
-7. [Frequently Asked Questions & Troubleshooting](#7-frequently-asked-questions--troubleshooting)
-8. [Roadmap for Remaining Team Modules](#8-roadmap-for-remaining-team-modules)
+A technical reference guide detailing the architecture, computer vision models, backend API, and frontend dashboard of the Road Safety Monitoring System.
 
 ---
 
 ## 1. Project Overview
 
-The **Road Safety Monitoring System** is an intelligent computer vision and web application designed to automatically detect road-safety violations and road hazards from traffic camera imagery and video feeds.
+The **Road Safety Monitoring System** is an image-processing and deep-learning web application designed to automate traffic safety monitoring. The application detects traffic violations and road hazards from roadway photos and provides visual feedback through an interactive dashboard.
 
-### The Problem It Solves
-Manual monitoring of traffic cameras by traffic authorities is slow, labor-intensive, and prone to human oversight. By leveraging deep learning (YOLOv8) and a real-time web dashboard, this system automatically flags safety violations (such as two-wheeler riders without helmets) and organizes incidents for authorities to review.
-
----
-
-## 2. Team Members & Assigned Modules
-
-| Name | Registration No. | Module Responsibility | Status |
-| :--- | :--- | :--- | :--- |
-| **Vishal Patel** | **20233314** | **Helmet Violation Detection** | **Completed & Integrated** ✅ |
-| **Sojwal Vilhekar** | 20233359 | Triple-Riding Detection | In Progress ⏳ |
-| **Virajsingh Rajput** | 20233360 | Pothole Detection | In Progress ⏳ |
-| **Shibchandan Mistry** | 20233263 | Automatic Number Plate Recognition (ANPR) | In Progress ⏳ |
+### Core Capabilities
+1. **Helmet Violation Detection**: Identifies whether two-wheeler riders are wearing helmets (`With Helmet`) or not (`Without Helmet`).
+2. **Pothole Detection**: Detects road surface damage and potholes to identify road hazards.
+3. **Automatic Number Plate Recognition (ANPR)**: Localizes vehicle license plates using a trained YOLOv8 model and extracts alphanumeric plate numbers using EasyOCR.
+4. **Unified Scan**: Executes all models concurrently on a single traffic frame and aggregates violations and hazard counts.
 
 ---
 
-## 3. System Architecture (The Big Picture)
+## 2. Team Members & Module Responsibilities
 
-The system is organized into **Three Main Layers**:
+| Name | Registration No. | Module Responsibility | Implementation Status |
+|---|---|---|---|
+| **Vishal Patel** | 20233314 | Helmet Violation Detection | Completed & Integrated |
+| **Virajsingh Rajput** | 20233360 | Road Pothole Detection | Completed & Integrated |
+| **Shibchandan Mistry** | 20233263 | License Plate Recognition (ANPR) | Completed & Integrated |
+| **Sojwal Vilhekar** | 20233359 | Triple-Riding Detection | In Progress / Planned |
 
-```
+---
+
+## 3. System Architecture
+
+The project follows a standard three-tier architecture:
+
+```text
 ┌────────────────────────────────────────────────────────────────────────┐
 │                   1. PRESENTATION LAYER (React + Vite)                 │
 │                                                                        │
-│  - User uploads traffic image via browser drag-and-drop               │
-│  - Displays live violation counters & statistics                       │
-│  - Canvas renders color-coded bounding boxes on the photo:             │
-│       🟢 Green = Compliant Rider (With Helmet)                         │
-│       🔴 Red   = Safety Violation (Without Helmet)                     │
+│  - Image selection via drag-and-drop or file picker                    │
+│  - Module selection tabs (Helmet, Pothole, ANPR, Unified)              │
+│  - Confidence threshold slider (15% to 95%)                            │
+│  - HTML5 Canvas drawing color-coded bounding boxes & tags              │
+│  - Live statistics and detection summary tables                        │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
-                       HTTP POST /detect (Image file)
-                       HTTP Response (JSON Detections)
-                                    │
+                                    │ HTTP POST (Multipart Form-Data)
+                                    │ HTTP Response (JSON Detections)
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                   2. INTEGRATION LAYER (FastAPI Backend)               │
+│                    2. API LAYER (FastAPI + Uvicorn)                    │
 │                                                                        │
-│  - Receives uploaded image from the browser                            │
-│  - Enables Cross-Origin Resource Sharing (CORS)                        │
-│  - Passes the image to the Computer Vision Engine                      │
-│  - Calculates violation counts and sends structured JSON back          │
+│  - Serves REST endpoints on port 8000                                  │
+│  - Manages CORS middleware for frontend communication                  │
+│  - Handles image upload streaming and temporary disk persistence      │
+│  - Invokes computer vision inference routines                          │
+│  - Returns standardized JSON payloads with timing and violation counts │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
-                       Calls detect_helmet(image_path)
-                       Returns bounding boxes & confidence
-                                    │
+                                    │ Python Function Invocations
+                                    │ Model Weights Inference
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│             3. COMPUTER VISION & AI LAYER (YOLOv8 + PyTorch)           │
+│            3. COMPUTER VISION & DEEP LEARNING (YOLOv8 + OCR)           │
 │                                                                        │
-│  - Dataset: 1,376 annotated photos ('With Helmet' / 'Without Helmet')  │
-│  - Model: Custom-trained YOLOv8 Nano weights (results/.../best.pt)     │
-│  - Script: opencv/helmet/detect.py detects riders and tags violations  │
+│  - Helmet Model:  results/helmet_detection/weights/best.pt             │
+│  - Pothole Model: results/pothole_detection/weights/best.pt            │
+│  - ANPR Model:    results/anpr/weights/best.pt + EasyOCR               │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 4. Deep Dive into Each Component
+## 4. Deep Dive into Computer Vision Modules
 
-### A. Datasets & YOLO Labels
-The project contains two datasets under `datasets/`:
-
-1. **`Bike Helmet Detection.v1i.yolov8/` (Active Dataset for Helmet Detection)**
-   - **Total Images:** 1,376 images (416x416 pixels).
-   - **2 Classes:**
-     - `0`: `With Helmet`
-     - `1`: `Without Helmet`
-   - **Split:**
-     - `train/` (1,185 images ~86%): The "textbook" the AI studies to learn patterns.
-     - `valid/` (127 images ~9%): The "practice test" checked after each round (epoch) to prevent memorization (overfitting).
-     - `test/` (64 images ~5%): The "final exam" used for unbiased scoring.
-
-2. **What does `data.yaml` do?**
-   `data.yaml` is the **master configuration file** for YOLO. Instead of passing 1,000+ files to Python, you give YOLO `data.yaml`. YOLO reads it and automatically discovers where the `train`, `valid`, and `test` images and labels are located.
-
-3. **Why are coordinates decimals between 0 and 1?**
-   In label files like `BikesHelmets0.txt`, you see:
-   `0 0.509 0.776 0.981 0.446`
-   These are **normalized coordinates**:
-   $$\text{Normalized Value} = \frac{\text{Pixel Coordinate}}{\text{Total Image Dimension}}$$
-   This ensures that if an image is resized from 416x416 to 1280x720, the labels remain 100% accurate without having to recalculate pixel values.
+All computer vision modules follow a standardized inference contract:
+```python
+def detect_*(image_path: str, conf: float = 0.4) -> list[dict]:
+    ...
+```
+Each function returns a list of dictionaries where each detection contains:
+- `bbox`: Coordinates in `[x1, y1, x2, y2]` integer pixel format.
+- `class`: String name of the detected class.
+- `confidence`: Confidence score as a float rounded to 4 decimals.
+- Module-specific metadata (e.g., `violation: bool`, `hazard: bool`, `plate_text: str`).
 
 ---
 
-### B. AI Model Training (`train.py`)
-Located in [opencv/helmet/train.py](file:///c:/Users/HP/OneDrive/Desktop/road-safety-monitoring-system/opencv/helmet/train.py):
+### A. Helmet Detection (`opencv/helmet/`)
 
-* **Base Model:** Uses `yolov8n.pt` (YOLOv8 Nano, the fastest and lightest version).
-* **Transfer Learning:** Starts with a model already pre-trained on millions of everyday objects (COCO dataset) and fine-tunes it on the helmet dataset for 50 epochs.
-* **Output:** Produces the optimized weights file: [results/helmet_detection/weights/best.pt](file:///c:/Users/HP/OneDrive/Desktop/road-safety-monitoring-system/results/helmet_detection/weights/best.pt).
+- **Script:** `opencv/helmet/detect.py`
+- **Trained Weights:** `results/helmet_detection/weights/best.pt`
+- **Classes:**
+  - `0`: `With Helmet`
+  - `1`: `Without Helmet`
+- **Violation Flag:** A detection is flagged with `"violation": True` whenever the detected class is `"Without Helmet"`.
+- **Training Script:** `opencv/helmet/train.py` runs transfer learning on `yolov8n.pt` using 50 epochs on the annotated helmet dataset.
+
+**Detection Output Format:**
+```json
+{
+  "bbox": [142, 60, 280, 245],
+  "class": "Without Helmet",
+  "confidence": 0.8841,
+  "violation": true
+}
+```
 
 ---
 
-### C. Computer Vision Inference (`detect.py`)
-Located in [opencv/helmet/detect.py](file:///c:/Users/HP/OneDrive/Desktop/road-safety-monitoring-system/opencv/helmet/detect.py):
+### B. Pothole Detection (`opencv/pothole/`)
 
-* Loads `best.pt` once.
-* Takes an image input and runs `model.predict()`.
-* Iterates through all detected bounding boxes:
-  - Extracts the box corner coordinates `[x1, y1, x2, y2]`.
-  - Determines the class name (`'With Helmet'` or `'Without Helmet'`).
-  - Sets `violation = (class_name == "Without Helmet")`.
-* Returns a list of structured Python dictionaries:
-  ```python
+- **Script:** `opencv/pothole/detect.py`
+- **Trained Weights:** `results/pothole_detection/weights/best.pt`
+- **Classes:**
+  - `0`: `pothole`
+- **Hazard Flag:** A detection is flagged with `"hazard": True` whenever a pothole is identified on the road surface.
+- **Training Script:** `opencv/pothole/train.py` trains YOLOv8 on road surface hazard data.
+
+**Detection Output Format:**
+```json
+{
+  "bbox": [320, 410, 580, 560],
+  "class": "pothole",
+  "confidence": 0.7612,
+  "hazard": true
+}
+```
+
+---
+
+### C. License Plate Recognition (ANPR) (`opencv/anpr/`)
+
+- **Scripts:**
+  - `opencv/anpr/detect.py`: Main detection pipeline.
+  - `opencv/anpr/ocr.py`: EasyOCR wrapper with bounding-box cropping and text cleaning.
+  - `opencv/anpr/preprocess.py`: Image pre-processing utilities (grayscale, noise reduction).
+- **Trained Weights:** `results/anpr/weights/best.pt`
+- **Pipeline Workflow:**
+  1. YOLOv8 locates the vehicle license plate bounding box (`[x1, y1, x2, y2]`).
+  2. The bounding box region is cropped from the input image.
+  3. Preprocessing cleans contrast and resizes the cropped plate.
+  4. EasyOCR extracts alphanumeric characters. Non-alphanumeric noise is stripped to return a normalized plate string (e.g., `DL8CAF5030`).
+
+**Detection Output Format:**
+```json
+{
+  "bbox": [215, 340, 430, 405],
+  "class": "license_plate",
+  "confidence": 0.8924,
+  "plate_text": "DL8CAF5030"
+}
+```
+
+---
+
+### D. Triple-Riding Detection (Planned Module)
+
+- **Planned Approach:**
+  - Utilize person and motorcycle detection bounding boxes.
+  - Compute Intersection over Union (IoU) or spatial overlap between rider boxes and motorcycle boxes.
+  - Flag an infraction if greater than 2 person bounding boxes overlap a single motorcycle bounding box.
+
+---
+
+## 5. Backend API Reference (`backend/api.py`)
+
+The backend is built with FastAPI and runs with Uvicorn on port `8000`. It provides CORS support for `localhost:5173`.
+
+### 1. Health Check
+- **Endpoint:** `GET /health` (also aliased at `GET /`)
+- **Purpose:** Verifies that the API is running and checks whether model weights files are found.
+- **Response Example:**
+  ```json
   {
-      "class": "Without Helmet",
-      "confidence": 0.892,
-      "bbox": [140, 85, 320, 410],
-      "violation": True
+    "status": "online",
+    "service": "Road Safety Monitoring API",
+    "version": "1.0.0",
+    "modules": {
+      "helmet_detection": true,
+      "pothole_detection": true,
+      "anpr": true
+    }
+  }
+  ```
+
+### 2. Helmet Violation Detection
+- **Endpoint:** `POST /detect/helmet` (also aliased at `POST /detect`)
+- **Query Parameter:** `conf` (float, default: `0.4`)
+- **Body:** `file` (Multipart form-data image)
+- **Response Example:**
+  ```json
+  {
+    "status": "success",
+    "module": "helmet_detection",
+    "total_detections": 2,
+    "violations_count": 1,
+    "has_violation": true,
+    "detections": [
+      {
+        "bbox": [140, 50, 275, 230],
+        "class": "Without Helmet",
+        "confidence": 0.89,
+        "violation": true
+      },
+      {
+        "bbox": [450, 60, 560, 210],
+        "class": "With Helmet",
+        "confidence": 0.92,
+        "violation": false
+      }
+    ],
+    "time_taken_ms": 78.4
+  }
+  ```
+
+### 3. Pothole Detection
+- **Endpoint:** `POST /detect/pothole`
+- **Query Parameter:** `conf` (float, default: `0.4`)
+- **Body:** `file` (Multipart form-data image)
+- **Response Example:**
+  ```json
+  {
+    "status": "success",
+    "module": "pothole_detection",
+    "total_detections": 1,
+    "hazards_count": 1,
+    "has_hazard": true,
+    "detections": [
+      {
+        "bbox": [200, 310, 480, 450],
+        "class": "pothole",
+        "confidence": 0.81,
+        "hazard": true
+      }
+    ],
+    "time_taken_ms": 64.2
+  }
+  ```
+
+### 4. License Plate Detection (ANPR)
+- **Endpoint:** `POST /detect/anpr` (also aliased at `POST /detect/plate`)
+- **Query Parameter:** `conf` (float, default: `0.4`)
+- **Body:** `file` (Multipart form-data image)
+- **Response Example:**
+  ```json
+  {
+    "status": "success",
+    "module": "anpr",
+    "total_detections": 1,
+    "plates_count": 1,
+    "detections": [
+      {
+        "bbox": [110, 280, 320, 360],
+        "class": "license_plate",
+        "confidence": 0.91,
+        "plate_text": "HR26DK8337"
+      }
+    ],
+    "time_taken_ms": 142.1
+  }
+  ```
+
+### 5. Unified All-in-One Detection
+- **Endpoint:** `POST /detect/all`
+- **Body:** `file` (Multipart form-data image)
+- **Response Example:**
+  ```json
+  {
+    "status": "success",
+    "module": "unified_all",
+    "summary": {
+      "helmet_violations": 1,
+      "potholes_found": 1,
+      "plates_found": 1,
+      "has_safety_alert": true
+    },
+    "helmet": { ... },
+    "pothole": { ... },
+    "anpr": { ... },
+    "time_taken_ms": 284.5
   }
   ```
 
 ---
 
-### D. Backend API (`backend/api.py`)
-Located in [backend/api.py](file:///c:/Users/HP/OneDrive/Desktop/road-safety-monitoring-system/backend/api.py):
+## 6. Frontend Dashboard Architecture (`frontend/`)
 
-#### Why do we need an API?
-A web browser running React speaks JavaScript and runs inside the user's browser. It **cannot directly run Python files or execute PyTorch `.pt` models** on your computer. The API acts as the bridge.
+The frontend is built using **React 19** and **Vite**, styled with clean, accessible CSS designed specifically for an academic project presentation.
 
-#### Key Features of the API:
-1. **FastAPI Framework:** Extremely high performance, automatic data validation, and built-in interactive Swagger documentation at `/docs`.
-2. **CORS Middleware:** Permits React (running on `http://localhost:5173`) to call the API without browser cross-origin security errors.
-3. **Automatic Cleanup:** Saves the uploaded image to a temporary file, executes detection, and guarantees removal from disk via a `finally:` block.
-4. **Endpoints:**
-   - `GET /`: Health-check endpoint returning server status.
-   - `POST /detect`: Accepts an uploaded image file (`file: UploadFile`) and returns JSON detection metrics.
-
----
-
-### E. Frontend Dashboard (`frontend/`)
-Located in [frontend/](file:///c:/Users/HP/OneDrive/Desktop/road-safety-monitoring-system/frontend):
-
-Built with **React (Vite)** and a custom **Vanilla CSS** design system (no bulky external CSS frameworks required):
-
-1. **Visual Inspection Canvas ([src/App.jsx](file:///c:/Users/HP/OneDrive/Desktop/road-safety-monitoring-system/frontend/src/App.jsx)):**
-   * Uses an HTML5 `<canvas>` to draw the photo and dynamically superimpose color-coded bounding boxes.
-   * **Safe rider:** Emerald Green box with `✓ With Helmet` label.
-   * **Violating rider:** Bright Rose Red box with `⚠️ Without Helmet` label and danger highlight.
-2. **Live Analytics Cards:**
-   * Total Scans Performed.
-   * Violations Caught.
-   * Helmets Verified.
-   * Violation Ratio (%).
-3. **Detection Breakdown Table:**
-   * Lists every detected rider, their class, compliance badge, confidence score, and raw `[x1, y1, x2, y2]` coordinates.
-4. **Controls & Utilities:**
-   * Confidence threshold slider (filter out low-confidence detections).
-   * One-click "Download Annotated Image" button.
-   * "Toggle Bounding Boxes" button to inspect the raw vs. annotated image.
-   * Real-time backend connection status badge (`Online` / `Offline`).
+### Key Components & Capabilities
+1. **Module Tabs (`tabs-nav`)**: Allows the user to toggle between `Helmet Detection`, `Pothole Detection`, `License Plate (ANPR)`, and `All Models (Combined)`.
+2. **HTML5 Canvas Renderer (`canvasRef`)**:
+   - Loads the user-selected image.
+   - Dynamically renders bounding boxes and tag badges over the image based on the backend response.
+   - Color coding:
+     - 🔴 **Red (`#dc2626`)**: Helmet violations (`Without Helmet`).
+     - 🟢 **Green (`#16a34a`)**: Compliant riders (`With Helmet`).
+     - 🟠 **Amber (`#d97706`)**: Road potholes.
+     - 🔵 **Blue (`#0284c7`)**: License plates.
+3. **Interactive Controls**:
+   - **Confidence Slider**: Real-time slider adjusting model confidence from 15% to 95%.
+   - **Toggle Boxes**: Button to show or hide bounding boxes to compare raw vs. detected outputs.
+   - **Save Image**: Exports the annotated canvas as a `.png` file.
+   - **Reset**: Clears the current preview, canvas, and detection state.
+4. **Backend Health Polling**: Periodically polls `http://127.0.0.1:8000/health` every 5 seconds to provide visual connection status (`Online` vs. `Offline`).
 
 ---
 
-## 5. Complete Directory Structure & File Map
+## 7. Repository Directory Structure
 
-```
+```text
 road-safety-monitoring-system/
-│
-├── .gitignore                   # Tells Git which files to ignore (.venv, datasets, cache)
-├── documentation.md             # This comprehensive architecture & project documentation
-├── help.txt                     # Dataset & project reference guide (3-class dataset)
-├── help_data.txt                # Dataset guide (2-class Bike Helmet dataset)
-├── how_to_compile_run.txt       # Quick terminal command cheatsheet
-├── requirements.txt             # Python dependencies (PyTorch, Ultralytics, OpenCV, etc.)
-├── README.md                    # Project overview & team member register
-│
-├── backend/                     # API & Server Layer
-│   └── api.py                   # FastAPI application connecting React to YOLOv8
-│
-├── datasets/                    # Datasets (Ignored in Git due to large file size)
-│   ├── Bike Helmet Detection.../ # 2-class dataset (With Helmet / Without Helmet)
-│   └── helmet/                  # 3-class dataset (Bike / Helmet / Passenger)
-│
-├── frontend/                    # User Interface (React + Vite)
-│   ├── index.html               # Main HTML entry with Google Fonts (Outfit & JetBrains Mono)
-│   ├── package.json             # NPM dependencies (React, Vite)
-│   ├── vite.config.js           # Vite build configuration
-│   └── src/
-│       ├── App.jsx              # Main dashboard application with Canvas renderer
-│       ├── index.css            # Dark glassmorphic design system
-│       └── main.jsx             # React DOM root mounting script
-│
-├── opencv/                      # Computer Vision & Deep Learning Engine
+├── backend/
+│   └── api.py                  # FastAPI server with all detection endpoints
+├── frontend/                   # React + Vite frontend dashboard
+│   ├── public/
+│   ├── src/
+│   │   ├── App.jsx             # React component containing controls & canvas logic
+│   │   ├── App.css             # Local styling overrides
+│   │   ├── index.css           # Clean academic layout stylesheet
+│   │   └── main.jsx            # React application entry point
+│   ├── index.html              # HTML shell
+│   ├── package.json            # Node dependencies
+│   └── vite.config.js          # Vite bundler configuration
+├── opencv/                     # Computer vision & deep learning code
 │   ├── helmet/
-│   │   ├── __init__.py          # Package indicator
-│   │   ├── detect.py            # Inference script returning bounding boxes & violation flags
-│   │   └── train.py             # Script to train YOLOv8 on data.yaml
-│   └── other_team_work/         # Workspace reserved for Triple-Riding, Potholes & ANPR
-│
-└── results/                     # Model weights and training outputs
-    └── helmet_detection/
-        └── weights/
-            └── best.pt          # The trained YOLOv8 model weights file (6.2 MB)
+│   │   ├── detect.py           # Helmet violation detection logic
+│   │   └── train.py            # Helmet model training script
+│   ├── pothole/
+│   │   ├── detect.py           # Road pothole detection logic
+│   │   └── train.py            # Pothole model training script
+│   └── anpr/
+│       ├── detect.py           # Plate detection logic
+│       ├── ocr.py              # EasyOCR text extraction module
+│       ├── preprocess.py       # Plate image preprocessing
+│       ├── server.py           # Standalone FastAPI server for ANPR
+│       ├── train.py            # ANPR local training script
+│       └── ANPR_YOLOv8_Training_Colab.ipynb # Google Colab notebook
+├── results/                    # YOLOv8 model weights
+│   ├── helmet_detection/weights/best.pt
+│   ├── pothole_detection/weights/best.pt
+│   └── anpr/weights/best.pt
+├── test_images/                # Sample road images for testing
+│   ├── bus.jpg
+│   ├── car_real.jpg
+│   ├── synthetic_plate.jpg
+│   └── test_car.jpg
+├── .gitignore                  # Git ignore rules (datasets, cache, runs)
+├── documentation.md            # Technical project documentation (this file)
+├── README.md                   # Repository overview and setup guide
+└── requirements.txt            # Python dependencies
 ```
 
 ---
 
-## 6. Step-by-Step Guide: How to Run the Project
+## 8. Step-by-Step Setup and Execution Guide
 
 ### Prerequisites
-Make sure you have installed on your computer:
-* **Python 3.10+**
-* **Node.js 18+ & npm**
+- Python 3.10+
+- Node.js 18+ and npm
 
----
-
-### Step 1: Open Terminal & Activate the Virtual Environment
-
-On Windows PowerShell:
-```powershell
-.venv\Scripts\Activate.ps1
-```
-*(Or in Windows Command Prompt: `.venv\Scripts\activate`)*
-
-Ensure your Python API packages are installed:
+### 1. Python Environment Setup
 ```bash
-pip install fastapi uvicorn python-multipart
+# Create virtual environment
+python -m venv .venv
+
+# Activate on Windows PowerShell
+.venv\Scripts\Activate.ps1
+
+# Activate on Windows Command Prompt
+.venv\Scripts\activate.bat
+
+# Activate on Linux / macOS
+source .venv/bin/activate
+
+# Install required Python packages
+pip install -r requirements.txt
 ```
 
----
-
-### Step 2: Start the Backend API Server
-
-From the project root:
+### 2. Start Backend API
 ```bash
 uvicorn backend.api:app --reload --port 8000
 ```
-* **API Address:** `http://127.0.0.1:8000`
-* **Interactive Test UI:** `http://127.0.0.1:8000/docs` (You can upload test photos and see JSON directly).
+- API Base URL: `http://127.0.0.1:8000`
+- Interactive Swagger Documentation: `http://127.0.0.1:8000/docs`
 
----
-
-### Step 3: Start the Frontend Dashboard
-
-Open a **second terminal window** and run:
+### 3. Start Frontend Dashboard
+Open a new terminal window:
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
+- Frontend URL: `http://localhost:5173`
 
-* **Frontend Dashboard:** `http://localhost:5173`
+### 4. Running Standalone Module Tests
+To test individual models from the command line without the web interface:
 
----
+```bash
+# Test Helmet Detection
+python opencv/helmet/detect.py
 
-### Step 4: Test Detection
+# Test Pothole Detection
+python opencv/pothole/detect.py
 
-1. Open your browser to `http://localhost:5173`.
-2. Notice the green **"YOLOv8 Backend: Online"** indicator in the top-right corner.
-3. Drag and drop any traffic image (or click to browse a `.jpg` or `.png`).
-4. Click **"🔍 Scan for Helmet Violations"**.
-5. Watch the scanner animation run and inspect the red/green bounding boxes, statistics, and breakdown table!
-
----
-
-## 7. Frequently Asked Questions & Troubleshooting
-
-#### Q: The frontend shows "Backend Offline (:8000)". Why?
-* Make sure you ran `uvicorn backend.api:app --reload --port 8000` in your first terminal and that it has not encountered an error.
-
-#### Q: Where is `best.pt` stored?
-* The trained weights are stored at `results/helmet_detection/weights/best.pt`. The script [detect.py](file:///c:/Users/HP/OneDrive/Desktop/road-safety-monitoring-system/opencv/helmet/detect.py) automatically resolves this path using `Path(__file__).resolve().parents[2]`.
-
-#### Q: How can I change the detection sensitivity?
-* Adjust the **Confidence Threshold slider** on the dashboard. A higher value (e.g., 70%) only shows detections the model is extremely certain about. A lower value (e.g., 35%) captures faint or distant riders.
-
----
-
-## 8. Roadmap for Remaining Team Modules
-
-As other team members build their modules, here is how they integrate into the system:
-
-1. **Triple-Riding Detection (Sojwal Vilhekar):**
-   * Use `datasets/helmet` (which detects `Bike` and `Passenger`).
-   * Logic: If number of `Passenger` bounding boxes overlapping a single `Bike` box > 2, flag a **Triple-Riding Violation**.
-2. **Pothole Detection (Virajsingh Rajput):**
-   * Train YOLO on a road-hazard / pothole dataset.
-   * Add a `detect_potholes()` function and a new endpoint `POST /detect/pothole`.
-3. **Automatic Number Plate Recognition - ANPR (Shibchandan Mistry):**
-   * Detect vehicle license plates with YOLO, crop the plate box, and pass it to **EasyOCR** or Tesseract to extract the alphanumeric registration string.
-   * Return `"plate_number": "MH12AB1234"` in the API response.
-
-
-[ Upload 8-sec Video ]
-         │
-         ▼
-[ OpenCV VideoCapture ]  ──>  Splits video into individual frames (Frame 1, Frame 2 ... Frame 240)
-         │
-         ▼
-   [ While Loop ]
-   ├── Frame 1  ──> YOLO detects helmet/no-helmet ──> Draws red/green boxes ──> Saves to Output Video
-   ├── Frame 2  ──> YOLO detects helmet/no-helmet ──> Draws red/green boxes ──> Saves to Output Video
-   └── ... up to Frame 240
-         │
-         ▼
-[ OpenCV VideoWriter ]  ──>  Stitches all 240 processed frames back into "annotated_result.mp4"
-         │
-         ▼
-[ Send to Frontend ]    ──>  React plays the processed video with violations highlighted!
+# Test License Plate Recognition (ANPR)
+python opencv/anpr/detect.py
+```
