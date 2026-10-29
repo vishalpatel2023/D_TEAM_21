@@ -36,4 +36,4 @@ road-safety violations and road hazards from images and videos.
 | Vishal Patel | 20233314 | Helmet Detection |
 | Sojwal Vilhekar | 20233359 | Triple-Riding Detection |
 | Virajsingh Rajput | 20233360 | Pothole Detection |
-| Shibchandan Mistry | 20233263 | ANPR |
+| Shib Chandan Mistry | 20233263 | ANPR |
