@@ -12,7 +12,8 @@ The **Road Safety Monitoring System** is an image-processing and deep-learning w
 1. **Helmet Violation Detection**: Identifies whether two-wheeler riders are wearing helmets (`With Helmet`) or not (`Without Helmet`).
 2. **Pothole Detection**: Detects road surface damage and potholes to identify road hazards.
 3. **Automatic Number Plate Recognition (ANPR)**: Localizes vehicle license plates using a trained YOLOv8 model and extracts alphanumeric plate numbers using EasyOCR.
-4. **Unified Scan**: Executes all models concurrently on a single traffic frame and aggregates violations and hazard counts.
+4. **Triple-Riding Detection**: Detects overloaded motorcycles carrying 3 or more riders using fine-tuned YOLOv8 model weights.
+5. **Unified Scan**: Executes all 4 models concurrently on a single traffic frame and aggregates violations and hazard counts.
 
 ---
 
@@ -23,7 +24,7 @@ The **Road Safety Monitoring System** is an image-processing and deep-learning w
 | **Vishal Patel** | 20233314 | Helmet Violation Detection | Completed & Integrated |
 | **Virajsingh Rajput** | 20233360 | Road Pothole Detection | Completed & Integrated |
 | **Shibchandan Mistry** | 20233263 | License Plate Recognition (ANPR) | Completed & Integrated |
-| **Sojwal Vilhekar** | 20233359 | Triple-Riding Detection | In Progress / Planned |
+| **Sojwal Vilhekar** | 20233359 | Triple-Riding Detection | Completed & Integrated |
 
 ---
 
@@ -61,9 +62,10 @@ The project follows a standard three-tier architecture:
 ┌────────────────────────────────────────────────────────────────────────┐
 │            3. COMPUTER VISION & DEEP LEARNING (YOLOv8 + OCR)           │
 │                                                                        │
-│  - Helmet Model:  results/helmet_detection/weights/best.pt             │
-│  - Pothole Model: results/pothole_detection/weights/best.pt            │
-│  - ANPR Model:    results/anpr/weights/best.pt + EasyOCR               │
+│  - Helmet Model:       results/helmet_detection/weights/best.pt        │
+│  - Pothole Model:      results/pothole_detection/weights/best.pt       │
+│  - ANPR Model:         results/anpr/weights/best.pt + EasyOCR          │
+│  - Triple Riding Model: results/triple-riding/best.pt                  │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -180,12 +182,25 @@ Each function returns a list of dictionaries where each detection contains:
 
 ---
 
-### D. Triple-Riding Detection (Planned Module)
+### D. Triple-Riding Detection (`opencv/triple-riding/`)
 
-- **Planned Approach:**
-  - Utilize person and motorcycle detection bounding boxes.
-  - Compute Intersection over Union (IoU) or spatial overlap between rider boxes and motorcycle boxes.
-  - Flag an infraction if greater than 2 person bounding boxes overlap a single motorcycle bounding box.
+- **Script:** `opencv/triple-riding/detect.py`
+- **Trained Weights:** `results/triple-riding/best.pt`
+- **Classes:**
+  - `0`: `Triple_riding` (or overloaded two-wheeler)
+- **Violation Flag:** A detection is flagged with `"violation": True` whenever 3 or more riders are detected on a motorcycle.
+- **Occlusion Handling:** Incorporates dual-thresholding and rider clustering heuristics to accurately detect violations even when passengers occlude the motorcycle body.
+
+**Detection Output Format:**
+```json
+{
+  "bbox": [2, 1, 416, 511],
+  "class": "Triple Riding",
+  "confidence": 0.8938,
+  "violation": true,
+  "rider_count": 3
+}
+```
 
 ---
 
@@ -287,7 +302,32 @@ The backend is built with FastAPI and runs with Uvicorn on port `8000`. It provi
   }
   ```
 
-### 5. Unified All-in-One Detection
+### 5. Triple-Riding Detection
+- **Endpoint:** `POST /detect/triple-riding` (also aliased at `POST /detect/triple_riding`)
+- **Query Parameter:** `conf` (float, default: `0.35`)
+- **Body:** `file` (Multipart form-data image)
+- **Response Example:**
+  ```json
+  {
+    "status": "success",
+    "module": "triple_riding",
+    "total_detections": 1,
+    "violations_count": 1,
+    "has_violation": true,
+    "detections": [
+      {
+        "bbox": [2, 1, 416, 511],
+        "class": "Triple Riding",
+        "confidence": 0.8938,
+        "violation": true,
+        "rider_count": 3
+      }
+    ],
+    "time_taken_ms": 128.4
+  }
+  ```
+
+### 6. Unified All-in-One Detection
 - **Endpoint:** `POST /detect/all`
 - **Body:** `file` (Multipart form-data image)
 - **Response Example:**
@@ -299,12 +339,14 @@ The backend is built with FastAPI and runs with Uvicorn on port `8000`. It provi
       "helmet_violations": 1,
       "potholes_found": 1,
       "plates_found": 1,
+      "triple_riding_violations": 1,
       "has_safety_alert": true
     },
     "helmet": { ... },
     "pothole": { ... },
     "anpr": { ... },
-    "time_taken_ms": 284.5
+    "triple_riding": { ... },
+    "time_taken_ms": 320.5
   }
   ```
 

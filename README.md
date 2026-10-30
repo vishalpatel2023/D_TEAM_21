@@ -2,7 +2,7 @@
 
 A computer vision-based web application developed for monitoring road safety and traffic violations using deep learning (YOLOv8) and optical character recognition (OCR).
 
-This project detects two-wheeler helmet violations, road potholes, and vehicle license plates from road images through a unified web interface.
+This project detects two-wheeler helmet violations, road potholes, vehicle license plates, and motorcycle triple-riding violations from road images through a unified web interface.
 
 ---
 
@@ -11,7 +11,8 @@ This project detects two-wheeler helmet violations, road potholes, and vehicle l
 - **Helmet Violation Detection**: Identifies whether motorcycle riders are wearing a helmet (`With Helmet`) or not (`Without Helmet`).
 - **Pothole Detection**: Detects road surface damage and potholes to help flag hazardous road conditions.
 - **License Plate Recognition (ANPR)**: Detects vehicle license plates using YOLOv8 and extracts the plate number using EasyOCR.
-- **Unified Multi-Model Scan**: Runs helmet, pothole, and license plate models together on a single uploaded traffic photo.
+- **Triple-Riding Detection**: Detects overloaded motorcycles carrying 3 or more riders using fine-tuned YOLOv8 model weights.
+- **Unified Multi-Model Scan**: Runs helmet, pothole, license plate, and triple-riding models together on a single uploaded traffic photo.
 - **Interactive Web Dashboard**: React frontend allowing users to upload images, adjust confidence thresholds, view bounding boxes on an HTML5 canvas, and download annotated results.
 - **RESTful API**: FastAPI backend providing dedicated endpoints for each model and a health check endpoint.
 
@@ -38,8 +39,10 @@ All datasets used for training and evaluating the computer vision models are pub
    - Annotated road imagery with bounding boxes labeled for `pothole` hazard detection.
 3. **Car License Plate (ANPR) Dataset**:
    - Annotated vehicle photos used for license plate localization and EasyOCR text extraction.
+4. **Triple-Riding Dataset (`triple riding dataset.v1i.darknet/`)**:
+   - Annotated images of two-wheelers carrying 3+ riders in YOLO format for detecting passenger overload violations.
 
-> **Note**: Pre-trained weights (`best.pt`) for all three models are already included in the `results/` folder, so you can run and test the complete system immediately without downloading the datasets. If you wish to retrain any model using `train.py`, download the datasets from the link above and place them inside a `datasets/` directory in the project root.
+> **Note**: Pre-trained weights (`best.pt`) for all four models are already included in the `results/` folder, so you can run and test the complete system immediately without downloading the datasets. If you wish to retrain any model using `train.py`, download the datasets from the link above and place them inside a `datasets/` directory in the project root.
 
 ---
 
@@ -64,20 +67,25 @@ road-safety-monitoring-system/
 │   ├── pothole/
 │   │   ├── detect.py           # Pothole detection inference function
 │   │   └── train.py            # YOLOv8 training script for pothole dataset
-│   └── anpr/
-│       ├── detect.py           # License plate detection inference function
-│       ├── ocr.py              # EasyOCR text reader for cropped plates
-│       ├── preprocess.py       # Image resizing and grayscale helpers
-│       ├── server.py           # Standalone FastAPI runner for ANPR
-│       ├── train.py            # Local training script for license plates
-│       └── ANPR_YOLOv8_Training_Colab.ipynb # Google Colab training notebook
+│   ├── anpr/
+│   │   ├── detect.py           # License plate detection inference function
+│   │   ├── ocr.py              # EasyOCR text reader for cropped plates
+│   │   ├── preprocess.py       # Image resizing and grayscale helpers
+│   │   ├── server.py           # Standalone FastAPI runner for ANPR
+│   │   ├── train.py            # Local training script for license plates
+│   │   └── ANPR_YOLOv8_Training_Colab.ipynb # Google Colab training notebook
+│   └── triple-riding/
+│       ├── detect.py           # Triple riding detection inference function
+│       └── train.py            # YOLOv8 training script for triple-riding
 ├── results/                    # Trained YOLOv8 model weights
 │   ├── helmet_detection/
 │   │   └── weights/best.pt     # Trained weights for helmet detection
 │   ├── pothole_detection/
 │   │   └── weights/best.pt     # Trained weights for pothole detection
-│   └── anpr/
-│       └── weights/best.pt     # Trained weights for license plate detection
+│   ├── anpr/
+│   │   └── weights/best.pt     # Trained weights for license plate detection
+│   └── triple-riding/
+│       └── weights/best.pt     # Fine-tuned weights for triple riding detection
 ├── test_images/                # Sample test images for verification
 │   ├── bus.jpg
 │   ├── car_real.jpg
@@ -181,6 +189,11 @@ You can test each computer vision module directly via Python scripts:
   python opencv/anpr/detect.py
   ```
 
+- **Triple-Riding Detection:**
+  ```bash
+  python opencv/triple-riding/detect.py
+  ```
+
 ---
 
 ## API Endpoints
@@ -193,7 +206,8 @@ The FastAPI backend exposes the following endpoints:
 | `POST` | `/detect/helmet` | Detects helmet usage (`With Helmet` / `Without Helmet`) |
 | `POST` | `/detect/pothole` | Detects road surface potholes |
 | `POST` | `/detect/anpr` | Detects license plates and extracts plate text |
-| `POST` | `/detect/all` | Runs all models on a single image and aggregates results |
+| `POST` | `/detect/triple-riding` | Detects overloaded motorcycles (3+ riders) |
+| `POST` | `/detect/all` | Runs all 4 models on a single image and aggregates results |
 
 ### Example API Request (cURL)
 
@@ -213,4 +227,4 @@ curl -X POST "http://127.0.0.1:8000/detect/helmet?conf=0.4" \
 | **Vishal Patel** | 20233314 | Helmet Violation Detection | Completed |
 | **Virajsingh Rajput** | 20233360 | Pothole Detection | Completed |
 | **Shibchandan Mistry** | 20233263 | License Plate Recognition (ANPR) | Completed |
-| **Sojwal Vilhekar** | 20233359 | Triple-Riding Detection | In Progress |
+| **Sojwal Vilhekar** | 20233359 | Triple-Riding Detection | Completed |
