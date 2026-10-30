@@ -17,11 +17,28 @@ from opencv.helmet.detect import detect_helmet
 from opencv.pothole.detect import detect_pothole
 from opencv.anpr.detect import detect_plate
 
+# Import triple riding detection module safely
+try:
+    from opencv.triple_riding.detect import detect_triple_riding
+except ImportError:
+    try:
+        import importlib.util
+        _tr_path = PROJECT_ROOT / "opencv" / "triple-riding" / "detect.py"
+        if _tr_path.exists():
+            _spec = importlib.util.spec_from_file_location("triple_riding_detect", str(_tr_path))
+            _mod = importlib.util.module_from_spec(_spec)
+            _spec.loader.exec_module(_mod)
+            detect_triple_riding = _mod.detect_triple_riding
+        else:
+            detect_triple_riding = None
+    except Exception:
+        detect_triple_riding = None
+
 # Initialize FastAPI application
 app = FastAPI(
     title="Road Safety Monitoring System - Unified API",
-    description="Unified Backend API for Road Safety: Helmet Violation, Pothole Detection & ANPR (License Plate Recognition)",
-    version="1.1.0"
+    description="Unified Backend API for Road Safety: Helmet Violation, Pothole Detection, ANPR & Triple Riding",
+    version="1.2.0"
 )
 
 # Enable CORS for React/Vite (ports 5173, 3000, or any local origin)
@@ -56,16 +73,18 @@ def health_check():
     return {
         "status": "online",
         "service": "Road Safety Monitoring System API",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "active_modules": {
             "helmet_detection": True,
             "pothole_detection": True,
-            "anpr": True
+            "anpr": True,
+            "triple_riding": detect_triple_riding is not None
         },
         "endpoints": {
             "detect_helmet": "POST /detect or POST /detect/helmet",
             "detect_pothole": "POST /detect/pothole",
             "detect_anpr": "POST /detect/anpr (or /detect/plate)",
+            "detect_triple_riding": "POST /detect/triple-riding (or /detect/triple_riding)",
             "detect_all": "POST /detect/all (multi-model unified scan)",
             "docs": "GET /docs (interactive Swagger API docs)"
         }
@@ -197,16 +216,62 @@ async def predict_plate(
                 pass
 
 
+# ── TRIPLE RIDING DETECTION ───────────────────────────────────────────────────
+@app.post("/detect/triple-riding")
+@app.post("/detect/triple_riding")
+async def predict_triple_riding(
+    file: UploadFile = File(...),
+    conf: float = Query(0.35, ge=0.05, le=0.95, description="Confidence threshold")
+):
+    """
+    Accept an uploaded image file, detect triple-riding (motorcycle overloading),
+    and return structured violation results for the React frontend.
+    """
+    if detect_triple_riding is None:
+        raise HTTPException(status_code=503, detail="Triple riding detection module is unavailable.")
+
+    start_time = time.time()
+    temp_file_path, _ = _save_upload_temp_file(file)
+
+    try:
+        detections = detect_triple_riding(temp_file_path, conf=conf)
+        violations = [d for d in detections if d.get("violation", False)]
+        elapsed_ms = round((time.time() - start_time) * 1000, 2)
+
+        return {
+            "status": "success",
+            "module": "triple_riding",
+            "filename": file.filename,
+            "total_detections": len(detections),
+            "violations_count": len(violations),
+            "has_violation": len(violations) > 0,
+            "time_taken_ms": elapsed_ms,
+            "conf_threshold": conf,
+            "detections": detections
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Inference error in triple riding detection: {str(e)}")
+
+    finally:
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+            except OSError:
+                pass
+
+
 # ── UNIFIED SCAN (ALL MODULES) ────────────────────────────────────────────────
 @app.post("/detect/all")
 async def predict_all(
     file: UploadFile = File(...),
     helmet_conf: float = Query(0.5, ge=0.05, le=0.95),
     pothole_conf: float = Query(0.25, ge=0.05, le=0.95),
-    anpr_conf: float = Query(0.4, ge=0.05, le=0.95)
+    anpr_conf: float = Query(0.4, ge=0.05, le=0.95),
+    triple_conf: float = Query(0.35, ge=0.05, le=0.95)
 ):
     """
-    Run all three detection models (Helmet, Pothole, ANPR) on a single uploaded traffic image.
+    Run all detection models (Helmet, Pothole, ANPR, Triple Riding) on a single uploaded traffic image.
     Ideal for a full road safety inspection view.
     """
     start_time = time.time()
@@ -216,10 +281,18 @@ async def predict_all(
         helmet_dets = detect_helmet(temp_file_path, conf=helmet_conf)
         pothole_dets = detect_pothole(temp_file_path, conf=pothole_conf)
         anpr_dets = detect_plate(temp_file_path, conf=anpr_conf)
+
+        triple_dets = []
+        if detect_triple_riding is not None:
+            triple_dets = detect_triple_riding(temp_file_path, conf=triple_conf)
+
         elapsed_ms = round((time.time() - start_time) * 1000, 2)
 
         helmet_violations = [d for d in helmet_dets if d.get("violation", False)]
         pothole_hazards = [d for d in pothole_dets if d.get("hazard", True)]
+        triple_violations = [d for d in triple_dets if d.get("violation", False)]
+
+        has_alert = (len(helmet_violations) > 0 or len(pothole_hazards) > 0 or len(triple_violations) > 0)
 
         return {
             "status": "success",
@@ -229,7 +302,8 @@ async def predict_all(
                 "helmet_violations": len(helmet_violations),
                 "potholes_found": len(pothole_hazards),
                 "plates_found": len(anpr_dets),
-                "has_safety_alert": (len(helmet_violations) > 0 or len(pothole_hazards) > 0)
+                "triple_riding_violations": len(triple_violations),
+                "has_safety_alert": has_alert
             },
             "helmet": {
                 "total_detections": len(helmet_dets),
@@ -247,6 +321,12 @@ async def predict_all(
                 "total_detections": len(anpr_dets),
                 "plates_count": len(anpr_dets),
                 "detections": anpr_dets
+            },
+            "triple_riding": {
+                "total_detections": len(triple_dets),
+                "violations_count": len(triple_violations),
+                "has_violation": len(triple_violations) > 0,
+                "detections": triple_dets
             }
         }
 

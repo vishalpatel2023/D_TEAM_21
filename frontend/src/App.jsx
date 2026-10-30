@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 const BACKEND_URL = 'http://127.0.0.1:8000';
 
 export default function App() {
-  // Navigation tabs: 'helmet', 'pothole', 'anpr', or 'all'
+  // Navigation tabs: 'helmet', 'pothole', 'anpr', 'triple_riding', or 'all'
   const [activeTab, setActiveTab] = useState('helmet');
 
   // Backend connection status
@@ -18,7 +18,7 @@ export default function App() {
   const [isScanning, setIsScanning] = useState(false);
   const [results, setResults] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [confidence, setConfidence] = useState(0.4);
+  const [confidence, setConfidence] = useState(0.35);
   const [showBoxes, setShowBoxes] = useState(true);
 
   // Project statistics counter
@@ -27,6 +27,7 @@ export default function App() {
     helmetViolations: 0,
     potholes: 0,
     plates: 0,
+    tripleRidingViolations: 0,
   });
 
   const canvasRef = useRef(null);
@@ -50,11 +51,11 @@ export default function App() {
   }, []);
 
   // Helper to style each bounding box
-  const getBoxStyle = (detection) => {
+  const getBoxStyle = useCallback((detection) => {
     const className = (detection.class || '').toLowerCase();
 
     // 1. Helmet module
-    if (className === 'without helmet' || detection.violation) {
+    if (className === 'without helmet' || (activeTab === 'helmet' && detection.violation)) {
       return {
         color: '#dc2626', // Red
         label: `Without Helmet (${(detection.confidence * 100).toFixed(0)}%)`,
@@ -84,11 +85,26 @@ export default function App() {
       };
     }
 
+    // 4. Triple Riding module
+    if (className === 'triple riding' || (detection.violation && className.includes('riding'))) {
+      const riders = detection.rider_count ? `${detection.rider_count} Riders` : 'Violation';
+      return {
+        color: '#dc2626', // Red Alert
+        label: `⚠️ Triple Riding: ${riders} (${(detection.confidence * 100).toFixed(0)}%)`,
+      };
+    }
+    if (className === 'motorcycle') {
+      return {
+        color: '#16a34a', // Green
+        label: `Motorcycle (${(detection.confidence * 100).toFixed(0)}%)`,
+      };
+    }
+
     return {
       color: '#4f46e5',
       label: `${detection.class} (${(detection.confidence * 100).toFixed(0)}%)`,
     };
-  };
+  }, [activeTab]);
 
   // Extract flat list of detections
   const getDetectionsList = useCallback(() => {
@@ -98,6 +114,7 @@ export default function App() {
         ...(results.helmet?.detections || []),
         ...(results.pothole?.detections || []),
         ...(results.anpr?.detections || []),
+        ...(results.triple_riding?.detections || []),
       ];
     }
     return results.detections || [];
@@ -146,7 +163,7 @@ export default function App() {
       ctx.fillStyle = '#ffffff';
       ctx.fillText(style.label, x1 + padding, labelY + labelH - padding);
     });
-  }, [showBoxes]);
+  }, [showBoxes, getBoxStyle]);
 
   // Redraw when toggle box checkbox or detections change
   useEffect(() => {
@@ -196,6 +213,8 @@ export default function App() {
       endpoint = `${BACKEND_URL}/detect/pothole?conf=${confidence}`;
     } else if (activeTab === 'anpr') {
       endpoint = `${BACKEND_URL}/detect/anpr?conf=${confidence}`;
+    } else if (activeTab === 'triple_riding') {
+      endpoint = `${BACKEND_URL}/detect/triple-riding?conf=${confidence}`;
     } else if (activeTab === 'all') {
       endpoint = `${BACKEND_URL}/detect/all`;
     }
@@ -221,6 +240,7 @@ export default function App() {
           ...(data.helmet?.detections || []),
           ...(data.pothole?.detections || []),
           ...(data.anpr?.detections || []),
+          ...(data.triple_riding?.detections || []),
         ];
       } else {
         currentList = data.detections || [];
@@ -229,9 +249,10 @@ export default function App() {
       // Update counters
       setStats((prev) => ({
         scans: prev.scans + 1,
-        helmetViolations: prev.helmetViolations + (data.violations_count || data.helmet?.violations_count || 0),
+        helmetViolations: prev.helmetViolations + (data.violations_count && activeTab === 'helmet' ? data.violations_count : data.helmet?.violations_count || 0),
         potholes: prev.potholes + (data.hazards_count || data.pothole?.hazards_count || 0),
         plates: prev.plates + (data.plates_count || data.anpr?.plates_count || 0),
+        tripleRidingViolations: prev.tripleRidingViolations + (data.violations_count && activeTab === 'triple_riding' ? data.violations_count : data.triple_riding?.violations_count || 0),
       }));
 
       // Render boxes on canvas
@@ -309,6 +330,14 @@ export default function App() {
         </button>
 
         <button
+          className={`tab-btn ${activeTab === 'triple_riding' ? 'active' : ''}`}
+          onClick={() => { setActiveTab('triple_riding'); setResults(null); }}
+        >
+          <span>👥 Triple Riding</span>
+          <span className="tab-tag">Sojwal</span>
+        </button>
+
+        <button
           className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`}
           onClick={() => { setActiveTab('all'); setResults(null); }}
         >
@@ -348,6 +377,14 @@ export default function App() {
           <div className="stat-info">
             <div className="stat-label">Plates Recognized</div>
             <div className="stat-value">{stats.plates}</div>
+          </div>
+        </div>
+
+        <div className="stat-box">
+          <div className="stat-icon">👥</div>
+          <div className="stat-info">
+            <div className="stat-label">Triple Riding</div>
+            <div className="stat-value">{stats.tripleRidingViolations}</div>
           </div>
         </div>
       </div>
@@ -412,7 +449,7 @@ export default function App() {
             onClick={runDetection}
             disabled={!selectedFile || isScanning}
           >
-            {isScanning ? 'Running YOLO Model...' : `Run ${activeTab.toUpperCase()} Detection`}
+            {isScanning ? 'Running YOLO Model...' : `Run ${activeTab.toUpperCase().replace('_', ' ')} Detection`}
           </button>
 
           {/* Offline Warning Notice */}
@@ -500,9 +537,16 @@ export default function App() {
                       : 'No license plates detected.'
                   )}
 
+                  {/* Triple Riding tab */}
+                  {activeTab === 'triple_riding' && (
+                    results.has_violation
+                      ? `Violation: ${results.violations_count} overloaded motorcycle(s) (triple riding) detected!`
+                      : 'Safe: No triple riding detected. Two-wheelers have compliant passenger counts.'
+                  )}
+
                   {/* Combined tab */}
                   {activeTab === 'all' && (
-                    `Unified Scan: ${results.summary?.helmet_violations} Helmet Violations | ${results.summary?.potholes_found} Potholes | ${results.summary?.plates_found} Plates`
+                    `Unified Scan: ${results.summary?.helmet_violations || 0} Helmet | ${results.summary?.potholes_found || 0} Potholes | ${results.summary?.plates_found || 0} Plates | ${results.summary?.triple_riding_violations || 0} Triple Riding`
                   )}
                 </div>
                 <div className="banner-meta">
@@ -536,17 +580,38 @@ export default function App() {
                         <strong>{det.class}</strong>
                       </td>
                       <td>
-                        {det.violation && <span className="pill pill-danger">No Helmet</span>}
-                        {det.class === 'With Helmet' && <span className="pill pill-safe">Helmet Worn</span>}
-                        {det.hazard && <span className="pill pill-warning">Road Pothole</span>}
+                        {det.class === 'Triple Riding' && (
+                          <span className="pill pill-danger">
+                            ⚠️ Overloaded ({det.rider_count || 3} Riders)
+                          </span>
+                        )}
+                        {det.class === 'Motorcycle' && (
+                          <span className="pill pill-safe">
+                            ✓ Compliant ({det.rider_count || 1} Rider{det.rider_count === 1 ? '' : 's'})
+                          </span>
+                        )}
+                        {det.violation && det.class !== 'Triple Riding' && (
+                          <span className="pill pill-danger">No Helmet</span>
+                        )}
+                        {det.class === 'With Helmet' && (
+                          <span className="pill pill-safe">Helmet Worn</span>
+                        )}
+                        {det.hazard && (
+                          <span className="pill pill-warning">Road Pothole</span>
+                        )}
                         {det.plate_text && (
                           <span className="pill pill-info">
                             Plate: <strong>{det.plate_text}</strong>
                           </span>
                         )}
-                        {!det.violation && !det.hazard && !det.plate_text && det.class !== 'With Helmet' && (
-                          <span className="pill pill-safe">Detected</span>
-                        )}
+                        {!det.violation &&
+                          !det.hazard &&
+                          !det.plate_text &&
+                          det.class !== 'With Helmet' &&
+                          det.class !== 'Motorcycle' &&
+                          det.class !== 'Triple Riding' && (
+                            <span className="pill pill-safe">Detected</span>
+                          )}
                       </td>
                       <td>{(det.confidence * 100).toFixed(1)}%</td>
                       <td className="mono-bbox">[{det.bbox.join(', ')}]</td>
