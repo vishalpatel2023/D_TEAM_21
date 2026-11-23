@@ -1,0 +1,99 @@
+{
+  "project": "Road Safety Monitoring System",
+  "generated_at": "2026-11-23",
+  "models": {
+    "helmet_detection": {
+      "module_name": "Helmet Violation Detection",
+      "architecture": "YOLOv8n (Nano)",
+      "weights_file": "results/helmet_detection/weights/best.pt",
+      "image_size": 416,
+      "trained_epochs": 50,
+      "classes": [
+        "With Helmet",
+        "Without Helmet"
+      ],
+      "metrics": {
+        "precision": 0.7265,
+        "recall": 0.7259,
+        "f1_score": 0.7262,
+        "map_50": 0.7498,
+        "map_50_95": 0.4030,
+        "peak_precision": 0.8098,
+        "val_box_loss": 1.5859,
+        "val_cls_loss": 1.0492
+      },
+      "inference_speed_ms": 2.8,
+      "hardware_requirement": "CPU / GPU",
+      "description": "Detects motorcycle riders and classifies whether they are wearing a safety helmet or violating road safety rules."
+    },
+    "pothole_detection": {
+      "module_name": "Road Pothole Hazard Detection",
+      "architecture": "YOLOv8n (Nano)",
+      "weights_file": "results/pothole_detection/weights/best.pt",
+      "image_size": 416,
+      "trained_epochs": 50,
+      "classes": [
+        "pothole"
+      ],
+      "metrics": {
+        "precision": 0.9361,
+        "recall": 0.9357,
+        "f1_score": 0.9359,
+        "map_50": 0.9694,
+        "map_50_95": 0.6469,
+        "peak_precision": 0.9361,
+        "val_box_loss": 0.8963,
+        "val_cls_loss": 0.7448
+      },
+      "inference_speed_ms": 2.4,
+      "hardware_requirement": "CPU / GPU",
+      "description": "Identifies road surface cavities, potholes, and cracks to prevent accidents and report road maintenance needs."
+    },
+    "triple_riding_detection": {
+      "module_name": "Triple-Riding Violation Detection",
+      "architecture": "YOLOv8s (Small)",
+      "weights_file": "results/triple-riding/best.pt",
+      "image_size": 640,
+      "trained_epochs": 50,
+      "classes": [
+        "Triple_riding"
+      ],
+      "metrics": {
+        "precision": 0.9644,
+        "recall": 0.9214,
+        "f1_score": 0.9424,
+        "map_50": 0.9418,
+        "map_50_95": 0.7274,
+        "peak_precision": 0.9846,
+        "val_box_loss": 0.8950,
+        "val_cls_loss": 0.5509
+      },
+      "inference_speed_ms": 4.1,
+      "hardware_requirement": "CPU / GPU",
+      "description": "Detects overloaded motorcycles carrying three or more individuals simultaneously."
+    },
+    "anpr_detection": {
+      "module_name": "Automatic Number Plate Recognition (ANPR)",
+      "architecture": "YOLOv8n + EasyOCR",
+      "weights_file": "results/anpr/weights/best.pt",
+      "image_size": 640,
+      "trained_epochs": 50,
+      "classes": [
+        "license_plate"
+      ],
+      "metrics": {
+        "plate_detection_precision": 0.7790,
+        "plate_detection_recall": 0.6810,
+        "plate_detection_f1_score": 0.7267,
+        "plate_detection_map_50": 0.7520,
+        "plate_detection_map_50_95": 0.3820,
+        "ocr_recognition_accuracy": 0.8600,
+        "val_box_loss": 1.1150,
+        "val_cls_loss": 0.5533
+      },
+      "inference_speed_ms": 2.2,
+      "hardware_requirement": "CPU / GPU",
+      "description": "Localizes vehicle license plates (cars, motorcycles, scooters, trucks) and extracts registration numbers using vertical CLAHE OCR grouping."
+    }
+  }
+}

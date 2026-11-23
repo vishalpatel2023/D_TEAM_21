@@ -2,7 +2,7 @@
 
 A computer vision-based web application developed for monitoring road safety and traffic violations using deep learning (YOLOv8) and optical character recognition (OCR).
 
-This project detects two-wheeler helmet violations, road potholes, vehicle license plates, and motorcycle triple-riding violations from road images through a unified web interface.
+This project detects two-wheeler helmet violations, road potholes, vehicle license plates, and motorcycle triple-riding violations from road images and recorded traffic videos through a unified web interface.
 
 ---
 
@@ -10,17 +10,19 @@ This project detects two-wheeler helmet violations, road potholes, vehicle licen
 
 - **Helmet Violation Detection**: Identifies whether motorcycle riders are wearing a helmet (`With Helmet`) or not (`Without Helmet`).
 - **Pothole Detection**: Detects road surface damage and potholes to help flag hazardous road conditions.
-- **License Plate Recognition (ANPR)**: Detects vehicle license plates using YOLOv8 and extracts the plate number using EasyOCR.
+- **License Plate Recognition (ANPR)**: Detects vehicle license plates using YOLOv8 with strict Non-Maximum Suppression (NMS) and extracts plate numbers using EasyOCR with CLAHE contrast enhancement and 2-row vertical text grouping.
 - **Triple-Riding Detection**: Detects overloaded motorcycles carrying 3 or more riders using fine-tuned YOLOv8 model weights.
 - **Unified Multi-Model Scan**: Runs helmet, pothole, license plate, and triple-riding models together on a single uploaded traffic photo.
-- **Interactive Web Dashboard**: React frontend allowing users to upload images, adjust confidence thresholds, view bounding boxes on an HTML5 canvas, and download annotated results.
-- **RESTful API**: FastAPI backend providing dedicated endpoints for each model and a health check endpoint.
+- **Traffic Video Analysis & Incident Timeline**: Analyzes full-length traffic video clips (MP4/MOV/AVI/WEBM), generates an incident timeline with exact timestamps, and transcodes output with H.264 for in-browser playback.
+- **Interactive Web Dashboard**: React frontend allowing users to upload images and videos, adjust confidence thresholds, view bounding boxes on an HTML5 canvas, and download annotated results.
+- **RESTful API**: FastAPI backend providing dedicated endpoints for each model, video processing, and health checks.
 
 ---
 
 ## Tech Stack
 
 - **Computer Vision & Deep Learning**: Python, Ultralytics YOLOv8, PyTorch, OpenCV, EasyOCR
+- **Video Processing**: imageio-ffmpeg, OpenCV VideoCapture/VideoWriter (H.264 transcoding)
 - **Backend**: FastAPI, Uvicorn, Python-Multipart
 - **Frontend**: React 19, Vite, Plain CSS (HTML5 Canvas)
 
@@ -37,8 +39,8 @@ All datasets used for training and evaluating the computer vision models are pub
    - Annotated photos of two-wheeler riders categorized into `With Helmet` and `Without Helmet` in YOLO format (`train/`, `valid/`, and `test/` splits).
 2. **Pothole Detection Dataset (`Pothole-Detection.v18i.yolov8/`)**:
    - Annotated road imagery with bounding boxes labeled for `pothole` hazard detection.
-3. **Car License Plate (ANPR) Dataset**:
-   - Annotated vehicle photos used for license plate localization and EasyOCR text extraction.
+3. **Car License Plate (ANPR) Dataset (`ANPR.v5i.yolov8/`)**:
+   - 3,284 annotated vehicle photos used for license plate localization and EasyOCR text extraction.
 4. **Triple-Riding Dataset (`triple riding dataset.v1i.darknet/`)**:
    - Annotated images of two-wheelers carrying 3+ riders in YOLO format for detecting passenger overload violations.
 
@@ -51,11 +53,12 @@ All datasets used for training and evaluating the computer vision models are pub
 ```text
 road-safety-monitoring-system/
 ├── backend/
-│   └── api.py                  # FastAPI REST API serving all CV models
-├── frontend/                   # React + Vite web dashboard
+│   └── api.py                  # FastAPI REST API serving all CV models (Port 8000)
+├── frontend/                   # React + Vite web dashboard (Port 5173)
 │   ├── public/
 │   ├── src/
-│   │   ├── App.jsx             # Main dashboard UI & canvas rendering
+│   │   ├── App.jsx             # Main dashboard UI & image canvas rendering
+│   │   ├── VideoDetector.jsx   # Video processing UI, HUD & incident timeline
 │   │   ├── index.css           # Styling for clean dashboard layout
 │   │   └── main.jsx            # React root mount
 │   ├── package.json
@@ -68,15 +71,20 @@ road-safety-monitoring-system/
 │   │   ├── detect.py           # Pothole detection inference function
 │   │   └── train.py            # YOLOv8 training script for pothole dataset
 │   ├── anpr/
-│   │   ├── detect.py           # License plate detection inference function
-│   │   ├── ocr.py              # EasyOCR text reader for cropped plates
-│   │   ├── preprocess.py       # Image resizing and grayscale helpers
+│   │   ├── detect.py           # License plate detection with NMS
+│   │   ├── ocr.py              # EasyOCR 2-row reader for cropped plates
+│   │   ├── preprocess.py       # CLAHE contrast enhancement and image helpers
 │   │   ├── server.py           # Standalone FastAPI runner for ANPR
-│   │   ├── train.py            # Local training script for license plates
+│   │   ├── train.py            # Training script for license plates
 │   │   └── ANPR_YOLOv8_Training_Colab.ipynb # Google Colab training notebook
 │   └── triple-riding/
 │       ├── detect.py           # Triple riding detection inference function
 │       └── train.py            # YOLOv8 training script for triple-riding
+├── video_extension/            # Video detection extension module (Port 8001)
+│   ├── api.py                  # Video upload & streaming FastAPI service
+│   ├── annotator.py            # Video HUD, progress bar & bounding box drawer
+│   ├── video_processor.py      # Frame-by-frame detector and H.264 transcoder
+│   └── cli.py                  # Command-line video processor
 ├── results/                    # Trained YOLOv8 model weights
 │   ├── helmet_detection/
 │   │   └── weights/best.pt     # Trained weights for helmet detection
@@ -87,10 +95,8 @@ road-safety-monitoring-system/
 │   └── triple-riding/
 │       └── weights/best.pt     # Fine-tuned weights for triple riding detection
 ├── test_images/                # Sample test images for verification
-│   ├── bus.jpg
-│   ├── car_real.jpg
-│   ├── synthetic_plate.jpg
-│   └── test_car.jpg
+├── model_metrics.md            # Detailed performance & evaluation report
+├── model_metrics.json          # Machine-readable evaluation metrics
 ├── requirements.txt            # Python dependencies
 └── README.md
 ```
@@ -118,11 +124,11 @@ cd road-safety-monitoring-system
 # Create virtual environment
 python -m venv .venv
 
-# Activate on Windows (PowerShell)
-.venv\Scripts\Activate.ps1
-
 # Activate on Windows (Command Prompt)
 .venv\Scripts\activate.bat
+
+# Activate on Windows (PowerShell)
+.venv\Scripts\Activate.ps1
 
 # Activate on Linux / macOS
 source .venv/bin/activate
@@ -146,27 +152,29 @@ cd ..
 
 ## Running the Application
 
-### 1. Start the FastAPI Backend
-
+### 1. Start the FastAPI Image Backend
 From the project root:
-
 ```bash
 uvicorn backend.api:app --reload --port 8000
 ```
+The backend server will start at `http://127.0.0.1:8000`. Interactive Swagger UI: `http://127.0.0.1:8000/docs`.
 
-The backend server will start at `http://127.0.0.1:8000`.  
-Interactive API documentation (Swagger UI) is available at `http://127.0.0.1:8000/docs`.
-
-### 2. Start the React Frontend
-
+### 2. Start the Video Extension Backend (Optional for Video Processing)
 In a second terminal window:
+```bash
+uvicorn video_extension.api:app --reload --port 8001
+```
+The video backend will start at `http://127.0.0.1:8001`.
 
+### 3. Start the React Frontend
+In a third terminal window:
 ```bash
 cd frontend
 npm run dev
 ```
-
 Open your browser and visit: `http://localhost:5173`
+
+*(Optional: To share your running app publicly over the internet without port forwarding, run: `cloudflared tunnel --protocol http2 --url http://localhost:5173`)*
 
 ---
 
@@ -194,11 +202,16 @@ You can test each computer vision module directly via Python scripts:
   python opencv/triple-riding/detect.py
   ```
 
+- **Video Processing (CLI):**
+  ```bash
+  python -m video_extension.cli --input sample.mp4 --module all
+  ```
+
 ---
 
 ## API Endpoints
 
-The FastAPI backend exposes the following endpoints:
+### Image Detection Backend (Port 8000)
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -209,14 +222,12 @@ The FastAPI backend exposes the following endpoints:
 | `POST` | `/detect/triple-riding` | Detects overloaded motorcycles (3+ riders) |
 | `POST` | `/detect/all` | Runs all 4 models on a single image and aggregates results |
 
-### Example API Request (cURL)
+### Video Detection Backend (Port 8001)
 
-```bash
-curl -X POST "http://127.0.0.1:8000/detect/helmet?conf=0.4" \
-  -H "accept: application/json" \
-  -H "Content-Type: multipart/form-data" \
-  -F "file=@test_images/car_real.jpg"
-```
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/video/health` | Health check for video extension service |
+| `POST` | `/video/process` | Processes traffic video, applies AI detection HUD, and returns incident timeline |
 
 ---
 

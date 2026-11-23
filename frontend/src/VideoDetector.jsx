@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // Video Backend URL (Port 8001)
-const VIDEO_BACKEND_URL = 'http://127.0.0.1:8001';
+// When on localhost, connects directly; when accessed via Cloudflare Tunnel/remote URL, uses Vite proxy
+const VIDEO_BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+  ? 'http://127.0.0.1:8001'
+  : '';
 
 export default function VideoDetector() {
   const [videoFile, setVideoFile] = useState(null);

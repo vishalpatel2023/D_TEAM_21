@@ -1,6 +1,5 @@
 """
 Frame-level Object Detectors for Video Stream
-=============================================
 Runs in-memory inference directly on numpy array frames (cv2 BGR frames)
 without saving intermediate image files to disk for real-time speed.
 """

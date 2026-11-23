@@ -1,6 +1,4 @@
 """
-Model Loader for Video Processing
-=================================
 Manages thread-safe lazy singletons for all 4 YOLO models
 so weights are loaded into memory once and reused across frames.
 """

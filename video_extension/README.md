@@ -1,8 +1,6 @@
 # Video Processing Extension
 ### Real-Time Video Safety Hazard & Violation Detection for Road Safety Monitoring System
 
-> **Note:** This extension is kept completely separate in `video_extension/` without modifying any existing project folders or files.
-
 ---
 
 ## Overview

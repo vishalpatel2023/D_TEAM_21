@@ -28,7 +28,7 @@ from typing import Union
 import cv2
 import numpy as np
 
-# ── Ensure project root is on sys.path so sibling packages resolve ────────────
+# -- Ensure project root is on sys.path so sibling packages resolve ------------
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
@@ -36,11 +36,11 @@ if str(_PROJECT_ROOT) not in sys.path:
 from opencv.anpr.preprocess import preprocess_plate, annotate_image
 from opencv.anpr.ocr import extract_plate_text
 
-# ── Project paths ─────────────────────────────────────────────────────────────
+# -- Project paths -------------------------------------------------------------
 PROJECT_ROOT = _PROJECT_ROOT
 MODEL_PATH   = PROJECT_ROOT / "results" / "anpr" / "weights" / "best.pt"
 
-# ── Lazy model singleton ──────────────────────────────────────────────────────
+# -- Lazy model singleton ------------------------------------------------------
 _model = None
 
 
@@ -62,7 +62,7 @@ def _get_model():
     return _model
 
 
-# ── Detection helpers ─────────────────────────────────────────────────────────
+# -- Detection helpers ---------------------------------------------------------
 
 def _detect_yolo(image: np.ndarray, model, conf: float) -> list:
     """Run YOLO inference and return raw bounding boxes."""
@@ -81,8 +81,14 @@ def _detect_yolo(image: np.ndarray, model, conf: float) -> list:
         for box in result.boxes:
             x1, y1, x2, y2 = map(int, box.xyxy[0])
             class_id = int(box.cls[0])
-            class_name = result.names[class_id]
-            boxes.append({"class": class_name, "bbox": [x1, y1, x2, y2], "confidence": float(box.conf[0])})
+            raw_name = str(result.names.get(class_id, class_id))
+
+            # Skip non-plate background objects if present in Roboflow export
+            if raw_name.lower() in ["objects", "object", "background"]:
+                continue
+
+            clean_name = "license_plate" if raw_name in ["0", "number plate", "plate", "license_plate"] else raw_name
+            boxes.append({"class": clean_name, "bbox": [x1, y1, x2, y2], "confidence": float(box.conf[0])})
     return boxes
 
 
@@ -161,7 +167,7 @@ def _nms(boxes: list, iou_threshold: float = 0.4) -> list:
     return kept
 
 
-# ── Main pipeline ─────────────────────────────────────────────────────────────
+# -- Main pipeline -------------------------------------------------------------
 
 def detect_plates(
     image_input: Union[str, Path, np.ndarray],
@@ -177,7 +183,7 @@ def detect_plates(
     Returns:
         dict with keys: detections, annotated_image_b64, total_plates
     """
-    # ── Load image ────────────────────────────────────────────────────────────
+    # -- Load image ------------------------------------------------------------
     if isinstance(image_input, (str, Path)):
         image = cv2.imread(str(image_input))
         if image is None:
@@ -187,11 +193,15 @@ def detect_plates(
 
     img_h, img_w = image.shape[:2]
 
-    # ── Step 1: Plate detection ───────────────────────────────────────────────
-    model     = _get_model()
-    raw_boxes = _detect_yolo(image, model, conf) if model != "contour" else _detect_contour(image)
+    # -- Step 1: Plate detection (with strict NMS to eliminate duplicate overlapping boxes)
+    model = _get_model()
+    if model != "contour":
+        yolo_candidates = _detect_yolo(image, model, conf)
+        raw_boxes = _nms(yolo_candidates, iou_threshold=0.25)
+    else:
+        raw_boxes = _detect_contour(image)
 
-    # ── Steps 2-4: Crop → Preprocess → OCR ───────────────────────────────────
+    # -- Steps 2-4: Crop → Preprocess → OCR -----------------------------------
     detections = []
     for raw in raw_boxes:
         x1, y1, x2, y2 = raw["bbox"]
@@ -213,7 +223,7 @@ def detect_plates(
             "ocr_confidence": round(ocr_result["ocr_confidence"], 4),
         })
 
-    # ── Step 5: Annotate + encode ─────────────────────────────────────────────
+    # -- Step 5: Annotate + encode ---------------------------------------------
     annotated     = annotate_image(image, detections)
     _, buffer     = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 90])
     annotated_b64 = base64.b64encode(buffer).decode("utf-8")
@@ -225,7 +235,7 @@ def detect_plates(
     }
 
 
-# ── CLI entry point ───────────────────────────────────────────────────────────
+# -- CLI entry point -----------------------------------------------------------
 def detect_plate(
     image_path: Union[str, Path, np.ndarray],
     conf: float = 0.4,
@@ -246,10 +256,6 @@ detect_anpr = detect_plate
 
 
 if __name__ == "__main__":
-
-
-
-
     img_path = sys.argv[1] if len(sys.argv) > 1 else str(PROJECT_ROOT / "test_images" / "car_real.jpg")
     conf_arg = float(sys.argv[2]) if len(sys.argv) > 2 else 0.4
 
@@ -271,4 +277,3 @@ if __name__ == "__main__":
         with open(out_path, "wb") as f:
             f.write(img_bytes)
         print(f"\nAnnotated image saved to: {out_path}")
-
