@@ -731,7 +731,7 @@ export default function App() {
 
             <div className="stat-box">
 
-              <div className="stat-icon">📸</div>
+              {/* <div className="stat-icon">📸</div> */}
 
               <div className="stat-info">
 
@@ -747,7 +747,7 @@ export default function App() {
 
             <div className="stat-box">
 
-              <div className="stat-icon">🚫</div>
+              {/* <div className="stat-icon">🚫</div> */}
 
               <div className="stat-info">
 
@@ -763,7 +763,7 @@ export default function App() {
 
             <div className="stat-box">
 
-              <div className="stat-icon">🛣️</div>
+              {/* <div className="stat-icon">🛣️</div> */}
 
               <div className="stat-info">
 
@@ -779,7 +779,7 @@ export default function App() {
 
             <div className="stat-box">
 
-              <div className="stat-icon">🔢</div>
+              {/* <div className="stat-icon">🔢</div> */}
 
               <div className="stat-info">
 
@@ -795,7 +795,7 @@ export default function App() {
 
             <div className="stat-box">
 
-              <div className="stat-icon">👥</div>
+              {/* <div className="stat-icon">👥</div> */}
 
               <div className="stat-info">
 
